@@ -1,0 +1,197 @@
+----------------------------------
+|NAGIOS MONITORING SERVER SETUP|
+----------------------------------
+
+
+PRE-REQUISITE:-
+==============
+ 1. install nagios on linux system
+ 2. run as root
+ 3. put nagios user in visudo
+ 4. disable selinux
+ 5. flush iptables
+
+
+INSTALLATION:-
+=============
+
+(I)
+ 1. install the following dependent packages 
+    #yum install -y httpd php gcc glibc glibc-common gd gd-devel make net-snmp openssl-devel xinetd
+
+ 2. To check whether they installed or not 
+    #which httpd (or) #which php
+
+ 3. Create nagios user 
+    #useradd nagios
+
+ 4. Assign password to nagios user
+    #passwd nagios
+
+ 5. Create a group called nagcmd
+    #groupadd nagcmd
+
+ 6. Add apache user and nagios user to nagcmd group
+    #usermod -G nagcmd nagios
+    #usermod -G nagcmd apache
+
+ 7. Create a directory called nagios under root    
+    #mkdir /root/nagios 
+    #cd /root/nagios 
+
+(II)
+ 1. Download nagios core files and nagios plugin files 
+    #wget wget https://assets.nagios.com/downloads/nagioscore/releases/nagios-4.3.4.tar.gz
+
+ 2. Extract the nagios core files  
+    #tar -xvf nagios-4.3.4.tar.gz 
+
+ 3. Navigate to nagios core file  
+     #cd nagios-4.3.4
+
+ 4. Configure nagios core     
+     #./configure --with-command-group=nagcmd
+
+ 5. Compile & install binaries  	
+     #make all 	
+     #make install
+     #make install-sh
+
+ 6. Install init scripts for nagios
+     #make install-init
+
+ 7. Install nagios command line 
+     #make install-commandmode
+
+ 8. Install nagios configurations 
+    #make install-config
+
+ 9. Install nagios web configuration	
+     #make install-webconf
+
+ 10. Create an account for logging nagios webpage and accessing application
+     #htpasswd -b -c /usr/local/nagios/etc/htpasswd.users nagiosadmin nagiosadmin
+
+ 11. Restart the httpd services
+     #service httpd restart
+
+(III)
+ 1. Go to /root/nagios directory & install nagios plugin file 
+     #cd /root/nagios
+     #wget https://nagios-plugins.org/download/nagios-plugins-2.2.1.tar.gz
+  
+ 2. unzip the tarfile
+     #tar -xvf nagios-plugins-2.2.1.tar.gz
+
+ 3. Go to nagios directory and navigate to nagios-plugin directory 
+     #cd nagios-plugins-2.2.1/
+
+ 4. Compile and install nagios plugin    
+     #./configure --with-nagios-user=nagios --with-nagios-group=nagios
+     #make
+     #make install
+
+(IV)
+ 1. go to /root/nagios and install nrpe plugin
+    #wget http://downloads.sourceforge.net/project/nagios/nrpe-2.x/nrpe-2.15/nrpe-2.15.tar.gz
+
+ 2. unzip the tar file
+    #tar -zxvf nrpe-3.2.1.tar.gz
+
+ 3. navigate to nrpe directory
+    #cd nrpe-3.2.1/
+
+ 4. compile and install nrpe plugin
+    #./configure
+    #make all
+    #make install
+    #make install-xinetd
+    #make install-daemon-config
+
+ 5. modify the changes
+    #vi /etc/xinetd.d/nrpe
+    ---------------------------------------------   
+    only_from = 127.0.0.1 nagios-server-ip
+    -------------------------------------------------
+
+ 6. restart xinetd services
+    #service xinetd restart
+
+ 7. install a check_nrpe directory
+    #ls -l /usr/local/nagios/libexec/check_nrpe
+
+(V)
+ 1. configure nagios
+    #vi /usr/local/nagios/etc/nagios.cfg
+    -----------------------------------------------------
+    uncomment following line
+    #cfg_dir=/usr/local/nagios/etc/servers
+    -----------------------------------------------------
+
+ 2. create a directory
+    #mkdir /usr/local/nagios/etc/servers
+
+ 3. configure nagios contact
+    #vi /usr/local/nagios/etc/objects/contacts.cfg
+
+ 4. configure check_nrpe command
+    #vi /usr/local/nagios/etc/objects/commands.cfg
+    -------------------------------------------------------
+    define command{
+    command_name check_nrpe
+    command_line $USER1$/check_nrpe -H $HOSTADDRESS$ -c $ARG1$
+    }
+    ------------------------------------------------------------
+
+(VI)
+ 1. Verify nagios configuration files to find whethaer we have done anything wrong in config files
+    #/usr/local/nagios/bin/nagios -v /usr/local/nagios/etc/nagios.cfg
+
+ 2. Start nagios services 
+    #service nagios start
+
+ 3. make services permenant
+    #chkconfig nagios on
+      #chkconfig httpd on
+
+ 4. Now go to browser and hit ipaddress/nagios 
+    http://ipaddress/nagios
+
+ 5. enetr credentails
+
+
+---------------------------
+|NAGIOS CLIENT/AGENT SETUP|
+---------------------------
+
+ 1. enable epel repo
+    #yum install -y epel-release
+
+ 2. now install nagios and nrpe plugins
+    #yum install nrpe nagios-plugins-all
+
+ 3. update nrpe config file
+    #vi /etc/nagios/nrpe.cfg
+    -----------------------------------------
+    allowed_hosts=127.0.0.1,nagios-server-ip
+    -----------------------------------------
+
+ 4. restart the services 
+    #systemctl start nrpe.service
+    #systemctl enable nrpe.service
+
+
+----------------------------------
+|NAGIOS INSTALLATION VERIFICATION|
+----------------------------------  
+ 1. now come to nagios server and execute following command to check nrpe daemon is running correctly or not
+    #/usr/local/nagios/libexec/check_nrpe -H nagiosclieintip
+    0/P:- NRPE 3.0 
+
+ 2. define your own host.cfg file, service.cfg file and add nrpe defnition in commands.cfg and update these entries in nagios.cfg
+
+ 3. after you always modify the config files execute nagios verication command
+    #/usr/local/nagios/bin/nagios -v /usr/local/nagios/etc/nagios.cfg
+
+ 4. restart nagios
+    #service nagios restart
